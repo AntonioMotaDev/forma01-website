@@ -53,7 +53,7 @@ const PROJECTS: Project[] = [
     summary:
       "La casa digital del estudio: un sitio rápido, claro y fácil de mantener, construido con el mismo proceso que usamos con clientes.",
     services: ["estrategia", "desarrollo"],
-    stack: ["Next.js", "TypeScript", "Tailwind CSS", "Vercel"],
+    stack: ["Next.js", "TypeScript", "Tailwind CSS", "Cloudflare Workers", "Resend"],
     accent: "bronze",
     url: "https://forma01.net",
     featured: true,

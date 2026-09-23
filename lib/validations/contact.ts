@@ -34,9 +34,9 @@ export const contactSchema = z.object({
 export type ContactInput = z.infer<typeof contactSchema>;
 
 /**
- * Vercel limita el cuerpo de una función a ~4.5 MB, así que el adjunto
- * se mantiene por debajo de eso. Para archivos más grandes, pide un link
- * (Drive, WeTransfer) en el mensaje.
+ * El adjunto se limita a 4 MB para que el Worker (plan gratis de Cloudflare,
+ * con poco tiempo de CPU por petición) lo procese sin problemas. Para archivos
+ * más grandes, pide un link (Drive, WeTransfer) en el mensaje.
  */
 export const ATTACHMENT = {
   maxBytes: 4 * 1024 * 1024,

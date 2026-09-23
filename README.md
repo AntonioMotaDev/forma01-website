@@ -1,20 +1,33 @@
 # FORMA/01 — Sitio web
 
 Sitio de **FORMA/01**, un estudio independiente de estrategia, desarrollo y sistemas en San Luis Potosí, México.
-Dominio: [forma01.net](https://forma01.net). Hosting: Vercel.
+Dominio: [forma01.net](https://forma01.net). Hosting: Cloudflare Workers (plan gratis, uso comercial permitido).
 
 > Un estudio independiente que desarrolla soluciones digitales, creativas y funcionales.
 
 ## Stack
 
-| Área        | Herramienta                                                                     |
-| ----------- | ------------------------------------------------------------------------------- |
-| Framework   | Next.js 16 (App Router, Turbopack) · React 19 · TypeScript                      |
-| Estilos     | Tailwind CSS v4 (tokens en `app/globals.css`)                                   |
-| Formularios | React Hook Form + Zod (mismo esquema en cliente y servidor)                     |
-| Email       | Nodemailer vía SMTP (Gmail, Zoho, cualquier proveedor)                          |
-| Tipografía  | IBM Plex Sans + IBM Plex Mono (`next/font`, sin peticiones a Google en runtime) |
-| SEO         | Metadata API, Open Graph dinámico, `sitemap.xml`, `robots.txt`, JSON-LD         |
+| Área        | Herramienta                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------ |
+| Framework   | Next.js 16 (App Router) · React 19 · TypeScript — exportado como sitio estático            |
+| Estilos     | Tailwind CSS v4 (tokens en `app/globals.css`)                                              |
+| Formularios | React Hook Form + Zod (mismo esquema en el navegador y en el Worker)                       |
+| Hosting     | Cloudflare Workers: archivos estáticos + un Worker para `/api/contact`                     |
+| Email       | [Resend](https://resend.com) (API HTTP, 3,000 correos/mes gratis)                          |
+| Tipografía  | IBM Plex Sans + IBM Plex Mono (`next/font`, se empaquetan en el build)                     |
+| SEO         | Metadata API, imágenes Open Graph generadas en build, `sitemap.xml`, `robots.txt`, JSON-LD |
+
+### Cómo funciona
+
+```
+Navegador ──► Cloudflare
+               ├─ /api/contact  → Worker (worker/index.ts) → valida → Resend → tu correo
+               └─ todo lo demás → archivos estáticos de out/ (generados por `next build`)
+```
+
+Las páginas no ejecutan código en el servidor: se generan una vez en el build y Cloudflare las sirve desde
+su red. Solo el formulario usa el Worker, así que el plan gratis sobra (las peticiones a archivos estáticos
+son ilimitadas y no cuentan contra las 100,000 diarias del Worker).
 
 ## Desarrollo local
 
@@ -22,18 +35,22 @@ Requiere Node.js 20.9 o superior.
 
 ```bash
 npm install
-cp .env.example .env.local   # llena SMTP_PASS para probar el formulario
-npm run dev                  # http://localhost:3000
+cp .env.example .env.local        # opcional: WhatsApp, URL del sitio
+cp .dev.vars.example .dev.vars    # tu API key de Resend, para probar el formulario
+
+npm run dev       # http://localhost:3000 — diseño y contenido (el formulario no envía aquí)
+npm run preview   # http://localhost:8787 — build + Worker: el sitio completo, formulario incluido
 ```
 
-| Script              | Qué hace                                      |
-| ------------------- | --------------------------------------------- |
-| `npm run dev`       | Servidor de desarrollo                        |
-| `npm run build`     | Build de producción (igual que en Vercel)     |
-| `npm run start`     | Sirve el build localmente                     |
-| `npm run lint`      | ESLint                                        |
-| `npm run typecheck` | Genera tipos de rutas y corre `tsc`           |
-| `npm run format`    | Prettier (ordena también las clases Tailwind) |
+| Script              | Qué hace                                                       |
+| ------------------- | -------------------------------------------------------------- |
+| `npm run dev`       | Servidor de desarrollo de Next.js                              |
+| `npm run build`     | Genera el sitio estático en `out/`                             |
+| `npm run preview`   | Build + `wrangler dev`: sitio y Worker como en producción      |
+| `npm run deploy`    | Build + `wrangler deploy` (deploy manual desde tu computadora) |
+| `npm run lint`      | ESLint                                                         |
+| `npm run typecheck` | Tipos del sitio y del Worker                                   |
+| `npm run format`    | Prettier (ordena también las clases Tailwind)                  |
 
 ## Estructura
 
@@ -48,7 +65,6 @@ app/
 ├── sobre-nosotros/page.tsx    Historia, filosofía, cliente ideal, equipo, stack
 ├── contacto/page.tsx          Formulario + preguntas frecuentes
 ├── cotizaciones/page.tsx      Condiciones y ejemplo de cotización
-├── api/contact/route.ts       Recibe el formulario y envía el correo
 ├── opengraph-image.tsx        Imagen para compartir en redes
 ├── sitemap.ts · robots.ts · manifest.ts · icon.svg · not-found.tsx
 components/
@@ -61,9 +77,15 @@ lib/
 ├── services.ts                Los tres pilares y sus casos de uso
 ├── projects.ts                ← Portafolio (aquí se agregan proyectos)
 ├── team.ts                    ← Equipo y stack (aquí se suman colaboradores)
-├── email.ts                   Configuración de Nodemailer
 ├── og.tsx                     Plantilla de imágenes Open Graph
 └── validations/contact.ts     Esquema Zod del formulario y reglas de adjuntos
+worker/
+├── index.ts                   Worker: /api/contact o archivos estáticos
+├── contact.ts                 Límite por IP, honeypot, validación
+├── email.ts                   Envío con la API de Resend
+└── env.ts                     Tipos de variables y bindings
+public/_headers                Headers de seguridad y caché para Cloudflare
+wrangler.jsonc                 Configuración del Worker
 ```
 
 ## Editar contenido
@@ -76,6 +98,8 @@ Casi todo el copy y los datos viven en `lib/`, separados de los componentes:
   muestra la sección de equipo automáticamente.
 - **Cambiar correo, WhatsApp, condiciones de pago o vigencia:** `lib/constants.ts`.
 - **Servicios:** `lib/services.ts`.
+
+Cada cambio que subas a `main` vuelve a generar y publicar el sitio automáticamente (ver Deploy).
 
 ### Design system
 
@@ -95,50 +119,87 @@ contraste suficiente para texto, así que `accent-ink` es Blue Slate en claro y 
 
 > Tailwind v4 se configura desde CSS (`@theme`), por eso no hay `tailwind.config.ts`.
 
-## Deploy en Vercel
+## Deploy en Cloudflare
 
-1. **Sube el repositorio a GitHub** (ya está en `antoniomotadev/forma01-website`).
-2. En [vercel.com/new](https://vercel.com/new), **importa el repositorio**. Vercel detecta Next.js; no hay que
-   cambiar el comando de build ni la carpeta de salida.
-3. En **Settings → Environment Variables**, agrega las variables de `.env.example`:
+Todo lo siguiente cabe en los planes gratis de Cloudflare y Resend.
 
-   | Variable                      | Ejemplo                     | Nota                                               |
-   | ----------------------------- | --------------------------- | -------------------------------------------------- |
-   | `NEXT_PUBLIC_SITE_URL`        | `https://forma01.net`       | URL canónica                                       |
-   | `NEXT_PUBLIC_WHATSAPP_NUMBER` | `5214441234567`             | Opcional. Vacío = sin botón de WhatsApp            |
-   | `SMTP_HOST`                   | `smtp.gmail.com`            |                                                    |
-   | `SMTP_PORT`                   | `465`                       | 465 = SSL, 587 = STARTTLS                          |
-   | `SMTP_USER`                   | `dev.antoniomota@gmail.com` |                                                    |
-   | `SMTP_PASS`                   | `abcd efgh ijkl mnop`       | **Contraseña de aplicación**, no la de tu cuenta   |
-   | `CONTACT_TO_EMAIL`            | `dev.antoniomota@gmail.com` | Dónde llegan los mensajes                          |
-   | `CONTACT_FROM_EMAIL`          | `dev.antoniomota@gmail.com` | Con Gmail debe ser la misma cuenta que `SMTP_USER` |
+### 1. Resend (correo del formulario)
 
-   Las variables `NEXT_PUBLIC_*` se leen en el build: si las cambias, vuelve a desplegar.
+1. Crea una cuenta en [resend.com](https://resend.com). **Regístrate con `dev.antoniomota@gmail.com`**: así el
+   remitente de prueba `onboarding@resend.dev` puede enviarte correos desde el primer día.
+2. En **API Keys → Create API key**, con permiso _Sending access_. Guárdala: se usa en el paso 3.
+3. Cuando `forma01.net` esté en Cloudflare (paso 4): **Domains → Add domain → forma01.net**. Resend te da
+   registros DNS (SPF y DKIM); con la integración de Cloudflare se agregan con un clic. Cuando diga
+   _Verified_, cambia `CONTACT_FROM_EMAIL` en `wrangler.jsonc` a `FORMA/01 <contacto@forma01.net>` y sube el
+   cambio.
 
-4. **Deploy.** Cada push a `main` publica a producción; cada Pull Request obtiene su URL de vista previa.
-5. **Dominio:** en **Settings → Domains** agrega `forma01.net` y `www.forma01.net`. Vercel te indica los
-   registros DNS (un registro `A` a `76.76.21.21` para el dominio raíz y un `CNAME` a `cname.vercel-dns.com`
-   para `www`, o delega los nameservers a Vercel). Marca `forma01.net` como principal y redirige `www`.
-6. Después del primer deploy, envía el sitemap en [Google Search Console](https://search.google.com/search-console):
+   > Por defecto el remitente es `onboarding@resend.dev`, el de prueba de Resend. Funciona de inmediato, pero
+   > solo entrega al correo con el que creaste la cuenta de Resend y puede caer en spam. Verifica el dominio
+   > antes de lanzar.
+
+### 2. Conectar el repositorio
+
+1. En el [dashboard de Cloudflare](https://dash.cloudflare.com): **Workers & Pages → Create → Import a
+   repository**, conecta GitHub y elige `antoniomotadev/forma01-website`.
+2. Configuración del build (Cloudflare la detecta, pero verifica):
+
+   | Campo             | Valor                 |
+   | ----------------- | --------------------- |
+   | Build command     | `npm run build`       |
+   | Deploy command    | `npx wrangler deploy` |
+   | Production branch | `main`                |
+
+3. En **Settings → Build → Variables and secrets** (variables de _build_):
+
+   | Variable                      | Valor                 | Nota                                    |
+   | ----------------------------- | --------------------- | --------------------------------------- |
+   | `NEXT_PUBLIC_SITE_URL`        | `https://forma01.net` | URL canónica                            |
+   | `NEXT_PUBLIC_WHATSAPP_NUMBER` | `5214441234567`       | Opcional. Vacío = sin botón de WhatsApp |
+
+Cada push a `main` publica a producción; las otras ramas generan una URL de vista previa.
+
+### 3. Secreto del Worker
+
+En el Worker: **Settings → Variables and secrets → Add → Secret**, nombre `RESEND_API_KEY`, valor la API key
+del paso 1. O desde tu terminal:
+
+```bash
+npx wrangler login
+npx wrangler secret put RESEND_API_KEY
+```
+
+`CONTACT_TO_EMAIL` y `CONTACT_FROM_EMAIL` están en `wrangler.jsonc` (sección `vars`) y se aplican en cada
+deploy; cámbialos ahí, no en el dashboard.
+
+### 4. Dominio
+
+1. Agrega `forma01.net` a Cloudflare (**Add a domain**, plan Free) y cambia los nameservers en tu
+   registrador por los que te indique Cloudflare. Si compras o transfieres el dominio en Cloudflare
+   Registrar, este paso ya está hecho.
+2. En el Worker: **Settings → Domains & Routes → Add → Custom domain**: `forma01.net` y `www.forma01.net`.
+3. Redirige `www` al dominio principal: **Rules → Redirect Rules → Create from template → Redirect from WWW
+   to root**.
+4. Después del primer deploy, envía el sitemap en [Google Search Console](https://search.google.com/search-console):
    `https://forma01.net/sitemap.xml`.
 
-### Contraseña de aplicación de Gmail
+### Límites del plan gratis (de sobra para este sitio)
 
-1. Activa la verificación en dos pasos en tu cuenta de Google.
-2. Ve a [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), crea una llamada
-   "forma01.net" y copia los 16 caracteres en `SMTP_PASS`.
-
-Si en el futuro usas un correo con el dominio (`hola@forma01.net`, con Google Workspace o Zoho), solo cambia
-las variables `SMTP_*` y `CONTACT_*`; el código no cambia.
+| Servicio           | Límite                                              |
+| ------------------ | --------------------------------------------------- |
+| Archivos estáticos | Ilimitados                                          |
+| Worker             | 100,000 peticiones/día (solo cuenta `/api/contact`) |
+| Resend             | 3,000 correos/mes, 100/día                          |
 
 ### Notas del formulario
 
-- Validación en cliente y servidor con el mismo esquema (`lib/validations/contact.ts`).
-- Adjunto opcional de hasta **4 MB** (Vercel limita el cuerpo de la petición a 4.5 MB). Formatos: PDF, Word,
-  PowerPoint, Excel, TXT, PNG, JPG y ZIP. Para archivos más grandes, el cliente puede pegar un link.
-- Anti-spam: campo trampa (honeypot) y límite de 5 envíos por IP cada 10 minutos. El límite vive en memoria
-  de cada instancia; si llega spam en volumen, cámbialo por Upstash/Vercel KV o agrega Cloudflare Turnstile.
+- Validación en el navegador y en el Worker con el mismo esquema (`lib/validations/contact.ts`).
+- Adjunto opcional de hasta **4 MB**. Formatos: PDF, Word, PowerPoint, Excel, TXT, PNG, JPG y ZIP. Para
+  archivos más grandes, el cliente puede pegar un link en el mensaje.
+- Anti-spam: campo trampa (honeypot) y límite de **3 envíos por minuto por IP** con el binding de rate
+  limiting de Cloudflare (`wrangler.jsonc`). Si algún día llega spam en volumen, el siguiente paso es
+  agregar [Turnstile](https://www.cloudflare.com/products/turnstile/) (gratis).
 - El correo llega con `Reply-To` del cliente: responder desde Gmail le contesta directamente.
+- Los errores de envío quedan en **Workers → forma01-website → Logs**.
 
 ## Antes de lanzar: checklist de contenido
 
@@ -171,7 +232,8 @@ roto. Cuando las tengas:
 
 Recomendaciones generales:
 
-- Exporta en JPG o WebP de calidad 80; `next/image` convierte a AVIF/WebP y ajusta tamaños automáticamente.
+- Como el sitio es estático, `next/image` no optimiza en tiempo real: exporta ya en **WebP calidad 80** y al
+  tamaño indicado (herramientas: [Squoosh](https://squoosh.app) o `cwebp`).
 - Mantén una dirección visual: mismos fondos, mismo tratamiento de sombras y mockups.
 - Escribe `alt` descriptivos (“Panel de inventario mostrando existencias por almacén”), no “imagen 1”.
 - Si usas fotos de clientes o de sus productos, pide permiso por escrito.
