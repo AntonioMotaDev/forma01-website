@@ -28,10 +28,10 @@
   //   npx wrangler secret put RESEND_API_KEY
   "vars": {
     "CONTACT_TO_EMAIL": "dev.antoniomota@gmail.com",
-    // Remitente de prueba de Resend: solo entrega al correo con el que creaste
-    // la cuenta. Cuando verifiques forma01.net en Resend, cámbialo a
-    // "FORMA/01 <contacto@forma01.net>".
-    "CONTACT_FROM_EMAIL": "FORMA/01 <onboarding@resend.dev>",
+    // Remitente con el dominio verificado en Resend. Si algún día el dominio
+    // deja de estar verificado, Resend rechazará los envíos; el remitente de
+    // prueba es "FORMA/01 <onboarding@resend.dev>".
+    "CONTACT_FROM_EMAIL": "FORMA/01 <contacto@forma01.net>",
   },
 
   "observability": { "enabled": true },

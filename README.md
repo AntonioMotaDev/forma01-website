@@ -128,14 +128,13 @@ Todo lo siguiente cabe en los planes gratis de Cloudflare y Resend.
 1. Crea una cuenta en [resend.com](https://resend.com). **Regístrate con `dev.antoniomota@gmail.com`**: así el
    remitente de prueba `onboarding@resend.dev` puede enviarte correos desde el primer día.
 2. En **API Keys → Create API key**, con permiso _Sending access_. Guárdala: se usa en el paso 3.
-3. Cuando `forma01.net` esté en Cloudflare (paso 4): **Domains → Add domain → forma01.net**. Resend te da
-   registros DNS (SPF y DKIM); con la integración de Cloudflare se agregan con un clic. Cuando diga
-   _Verified_, cambia `CONTACT_FROM_EMAIL` en `wrangler.jsonc` a `FORMA/01 <contacto@forma01.net>` y sube el
-   cambio.
+3. **Domains → Add domain → forma01.net** y agrega los registros DNS (SPF y DKIM) que te da Resend; con la
+   integración de Cloudflare se agregan con un clic. El remitente en `wrangler.jsonc` es
+   `FORMA/01 <contacto@forma01.net>`, así que el dominio debe aparecer como _Verified_ en Resend para que
+   los envíos funcionen.
 
-   > Por defecto el remitente es `onboarding@resend.dev`, el de prueba de Resend. Funciona de inmediato, pero
-   > solo entrega al correo con el que creaste la cuenta de Resend y puede caer en spam. Verifica el dominio
-   > antes de lanzar.
+   > No hace falta crear el buzón `contacto@forma01.net`: Resend solo lo usa como remitente. Las respuestas
+   > van al cliente gracias a `Reply-To`.
 
 ### 2. Conectar el repositorio
 
