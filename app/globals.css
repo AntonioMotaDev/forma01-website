@@ -1,0 +1,189 @@
+@import "tailwindcss";
+
+/*
+ * FORMA/01 — Design tokens
+ * ------------------------------------------------------------------
+ * Tailwind v4 se configura desde CSS (no hay tailwind.config.ts).
+ *
+ * 1. Paleta de marca (valores fijos)     → bg-carbon, text-bronze, etc.
+ * 2. Tokens semánticos (cambian con tema) → bg-bg, text-fg, border-line…
+ *
+ * Usa SIEMPRE los tokens semánticos en componentes. Los colores de marca
+ * directos se reservan para elementos que deben verse igual en ambos temas
+ * (logo, botón primario dorado, placeholders de proyecto).
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* 1. Paleta de marca */
+  --color-carbon: #15191c; /* Carbon Black */
+  --color-linen: #f2efe7; /* Soft Linen */
+  --color-slate: #315a70; /* Blue Slate */
+  --color-bronze: #d5a83a; /* Golden Bronze */
+  --color-cinnamon: #b85c3a; /* Cinnamon Wood */
+
+  /* Tipografía */
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Escala display para titulares grandes y confiados */
+  --text-display: clamp(2.75rem, 1.6rem + 5.2vw, 6.25rem);
+  --text-display--line-height: 0.98;
+  --text-display--letter-spacing: -0.035em;
+  --text-headline: clamp(2rem, 1.4rem + 2.6vw, 3.5rem);
+  --text-headline--line-height: 1.05;
+  --text-headline--letter-spacing: -0.025em;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-fade-up: fade-up 0.9s var(--ease-out-soft) both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/* 2. Tokens semánticos */
+:root {
+  --bg: #f2efe7; /* linen */
+  --bg-elevated: #f8f6f1;
+  --surface: #e9e5da;
+  --fg: #15191c; /* carbon */
+  --fg-muted: #4d5559;
+  --fg-subtle: #7a8084;
+  --line: rgb(21 25 28 / 0.12);
+  --line-strong: rgb(21 25 28 / 0.28);
+  /* Acento legible sobre fondo claro: el dorado no tiene contraste
+     suficiente como texto sobre linen, así que usamos Blue Slate. */
+  --accent-ink: #315a70;
+  --danger: #a24e30;
+  --success: #3d6b4f;
+  --grid: rgb(21 25 28 / 0.05);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #15191c; /* carbon */
+  --bg-elevated: #1b2024;
+  --surface: #20272b;
+  --fg: #f2efe7; /* linen */
+  --fg-muted: #b3b1aa;
+  --fg-subtle: #83847f;
+  --line: rgb(242 239 231 / 0.1);
+  --line-strong: rgb(242 239 231 / 0.24);
+  --accent-ink: #d5a83a; /* sobre carbon, el dorado sí es legible */
+  --danger: #df8a68;
+  --success: #8cc2a0;
+  --grid: rgb(242 239 231 / 0.04);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    @apply bg-bg font-sans text-fg antialiased;
+    font-feature-settings: "ss02";
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-bronze);
+    color: var(--color-carbon);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-bronze);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Etiqueta técnica en mono: "01 — Estrategia" */
+  .eyebrow {
+    @apply font-mono text-xs tracking-[0.14em] text-fg-subtle uppercase;
+  }
+
+  /* Retícula industrial sutil para fondos de sección */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, var(--grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+
+  /* Texto largo (casos de estudio, about) */
+  .prose-forma {
+    @apply max-w-[68ch] text-lg leading-relaxed text-fg-muted;
+  }
+  .prose-forma p + p {
+    @apply mt-5;
+  }
+  .prose-forma strong {
+    @apply font-semibold text-fg;
+  }
+}
+
+/* Reveal on scroll — ver components/ui/Reveal.tsx
+   Solo se oculta si hay JS (clase .js en <html>), así el contenido
+   nunca queda invisible para crawlers o navegadores sin JS. */
+@layer utilities {
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition:
+      opacity 0.8s var(--ease-out-soft),
+      transform 0.8s var(--ease-out-soft);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  .js .reveal[data-visible="true"] {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .js .reveal {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

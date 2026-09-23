@@ -1,0 +1,6 @@
+# Secretos del Worker para desarrollo local (`npm run preview`).
+# Copia a .dev.vars. En producción: `npx wrangler secret put RESEND_API_KEY`.
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxx
+
+# CONTACT_TO_EMAIL y CONTACT_FROM_EMAIL vienen de wrangler.jsonc; puedes
+# sobrescribirlos aquí para pruebas locales.
